@@ -1,13 +1,15 @@
 import React, { PureComponent } from 'react';
 import { View, Text, TouchableOpacity } from 'react-native';
 import LinearGradient from 'react-native-linear-gradient';
-import { ENTRY_COLOR, ENTRY_MAIN_COLOR, MAIN_GRAY, PRIMARY_COLOR, YELLOW_COLOR } from '../../../assets/color';
+import moment from 'moment';
+import { ENTRY_MAIN_COLOR, MAIN_GRAY, ONYX_COLOR, YELLOW_COLOR } from '../../../assets/color';
 import { scale, verticalScale } from './Scaling';
 interface Props {
 	navigation: any;
 	nav: any;
 	navigate: any;
 	item: any;
+	id: number;
 	index: number;
 	title: String;
 }
@@ -19,14 +21,15 @@ class PureRow extends PureComponent {
 
 	render() {
 		const { item, index, title } = this.props;
+		console.log('item', item)
 		return (
 			<TouchableOpacity
 				activeOpacity={0.6}
-				key={index}
+				key={index + item.id}
 				onPress={() => { this.openDetail(item.id, title, item) }}>
 				<LinearGradient
 					start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }}
-					colors={[ENTRY_MAIN_COLOR, YELLOW_COLOR]}
+					colors={[ YELLOW_COLOR, ENTRY_MAIN_COLOR]}
 					style={{
 						flexDirection: "row",
 						marginTop: verticalScale(4),
@@ -58,20 +61,20 @@ class PureRow extends PureComponent {
 					>
 						<Text
 							style={{
-								color: MAIN_GRAY,
+								color: ONYX_COLOR,
 								fontSize: scale(10),
 								marginTop: 8,
-								fontStyle: 'italic',
+								// fontStyle: 'italic',
 								fontFamily: "BurlingamePro-CondBold",
 							}}
 						>
-							{item.time}
+							{moment(item.date).format('LL')}
 						</Text>
 						<Text
 							style={{
 								color: '#000',
-								fontSize: scale(10),
-								fontFamily: "BurlingamePro-CondMedium",
+								fontSize: scale(12),
+								fontFamily: "BurlingamePro-CondSemiBold",
 							}}
 						>
 							{item.title.toUpperCase()}
@@ -83,8 +86,6 @@ class PureRow extends PureComponent {
 	}
 
 	openDetail = (index, _title, item) => {
-		console.log("****TTTT", index, _title, item)
-		console.log('nav', this.props)
 		this.props.nav.navigate('StoryDetail', {
 			item: item
 		})

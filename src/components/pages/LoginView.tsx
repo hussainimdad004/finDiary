@@ -1,11 +1,12 @@
 import React from 'react';
 import { StyleSheet, View, TextInput, Text } from 'react-native';
-import LinearGradient from 'react-native-linear-gradient';
-import { ENTRY_COLOR, ENTRY_MAIN_COLOR, LIGHT_GRAY, MAIN_GRAY, ONYX_COLOR, PRIMARY_COLOR, YELLOW_COLOR } from '../../../assets/color';
-import Button from '../helpers/Button';
+import { ENTRY_COLOR, ENTRY_MAIN_COLOR, LIGHT_GRAY, ONYX_COLOR, PRIMARY_COLOR, YELLOW_COLOR } from '../../../assets/color';
+import { Icon } from 'react-native-elements';
+import ErrorText from '../helpers/ErrorText';
 import GradientButton from '../helpers/gradientButton';
 import MyStorage from '../helpers/MyStorage';
 import { scale, verticalScale } from '../helpers/Scaling';
+import { validateEmail } from '../helpers/validations';
 interface State {
     email: string;
     password: string;
@@ -14,6 +15,14 @@ interface State {
     confirm_password: string;
     match_email: string;
     match_password: string;
+    show_email_error: boolean;
+    show_password_error: boolean;
+    email_error: string;
+    password_error: string;
+    show_credential_error: boolean;
+    credential_error: string;
+    eye_icon_value: string;
+    show_password: boolean;
 }
 interface Props {
     navigation: any;
@@ -30,20 +39,26 @@ export default class LoginView extends React.Component {
             loading: false,
             btn_text: "",
             match_email: "",
-            match_password: ""
+            match_password: "",
+            show_email_error: false,
+            show_password_error: false,
+            show_credential_error: false,
+            email_error: '',
+            password_error: '',
+            credential_error: '',
+            eye_icon_value: 'eye-with-line',
+            show_password: true
         }
     }
     componentDidMount() {
         const storage = new MyStorage();
         storage.getEmail().then(email => {
-            console.log('email', email);
             if (email) {
                 this.setState({
                     btn_text: 'LOGIN',
                     match_email: email
                 })
                 storage.getPassword().then(password => {
-                    console.log('password', password);
                     this.setState({
                         match_password: password
                     })
@@ -55,52 +70,153 @@ export default class LoginView extends React.Component {
             }
         })
     }
+    loginUser = async () => {
+        const storage = new MyStorage();
+        const {
+            email, password, match_email,
+            match_password, } = this.state;
+        if (email.trim() == '') {
+            this.setState({
+                show_email_error: true,
+                email_error: 'please enter email'
+            })
+            return
+        }
+        var valid = validateEmail(email);
+        if (!valid) {
+            this.setState({
+                show_email_error: true,
+                email_error: 'please enter valid email'
+            })
+            return
+        }
+        if (password.trim() == '') {
+            this.setState({
+                show_password_error: true,
+                password_error: 'please enter password'
+            })
+            return
+        }
+        this.setState({ loading: true })
+        if (email && password) {
+            if (match_email && match_password) {
+                if (email == match_email &&
+                    password == match_password) {
+                    this.setState({ loading: false });
+                    this.props.navigation.navigate('EntryList')
+                } else {
+                    this.setState({ loading: false, show_credential_error: true, credential_error: 'The email or password you entered is incorrect.' });
+                    // alert('The email or password you entered is incorrect.')
+                }
+            } else {
+                await storage.setEmail(email);
+                await storage.setPassword(password);
+                this.setState({ loading: false });
+                this.props.navigation.navigate('EntryList');
+            }
+        }
+    }
+    handleEmail = (text) => {
+        this.setState({
+            email: text.toLowerCase(),
+            show_email_error: false,
+            show_credential_error: false
+        })
+    }
+    handlePassword = (text) => {
+        this.setState({
+            password: text,
+            show_password_error: false,
+            show_credential_error: false
+        })
+    }
     render() {
         return (
-            <LinearGradient
-                start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }}
-                colors={[ENTRY_MAIN_COLOR, YELLOW_COLOR]}
+            <View
                 style={{
                     flex: 1,
+                    backgroundColor: '#fff',
                     alignItems: 'center',
                     justifyContent: 'center',
-                    paddingBottom: '60%'
+                    paddingBottom: '10%'
                 }}
             >
                 <Text style={{
                     fontFamily: 'BurlingamePro-CondBold',
-                    color: '#000',
+                    color: ENTRY_MAIN_COLOR,
                     fontSize: scale(38),
                     paddingBottom: verticalScale(28)
-                }}>Fin<Text style={{ color: ONYX_COLOR }}>Diary</Text></Text>
+                }}>Fin<Text style={{ color: YELLOW_COLOR }}>Diary</Text></Text>
                 <View style={styles.inputView} >
                     <TextInput
                         style={styles.inputText}
-                        placeholder="Email..."
+                        placeholder="Email"
                         value={this.state.email}
                         autoCorrect={false}
                         autoCapitalize={'none'}
                         keyboardType={'email-address'}
                         placeholderTextColor={ONYX_COLOR}
-                        onChangeText={text => this.setState({ email: text })} />
+                        onChangeText={text => this.handleEmail(text)} />
                 </View>
+                {
+                    this.state.show_email_error &&
+                    <ErrorText text_style={{ alignSelf: 'flex-start', marginLeft: scale(40) }} error_text={this.state.email_error} />
+                }
                 <View style={styles.inputView} >
                     <TextInput
-                        secureTextEntry
+                        secureTextEntry={this.state.show_password}
                         style={styles.inputText}
                         autoCorrect={false}
                         value={this.state.password}
                         autoCapitalize={'none'}
                         placeholder="Password"
                         placeholderTextColor={ONYX_COLOR}
-                        onChangeText={text => this.setState({ password: text })} />
+                        onChangeText={text => this.handlePassword(text)} />
+                    <Icon
+                        color={ONYX_COLOR}
+                        onPress={() => {
+                            const that = this
+                            var promise = new Promise(function (resolve, reject) {
+                                that.setState({ show_password: !that.state.show_password })
+                                resolve(true);
+                            })
+                            promise.then(bool => {
+                                if (that.state.show_password) {
+                                    that.setState({
+                                        eye_icon_value: 'eye-with-line'
+                                    })
+                                } else {
+                                    that.setState({
+                                        eye_icon_value: 'eye'
+                                    })
+                                }
+                            })
+                        }}
+                        name={this.state.eye_icon_value}
+                        type="entypo"
+                        size={20}
+                    />
                 </View>
+                {
+                    this.state.show_password_error &&
+                    <ErrorText
+                        text_style={{ alignSelf: 'flex-start', marginLeft: scale(40) }}
+                        error_text={this.state.password_error}
+                    />
+                }
+                {
+                    this.state.show_credential_error &&
+                    <ErrorText
+                        text_style={{ alignSelf: 'flex-start', marginLeft: scale(40) }}
+                        error_text={this.state.credential_error}
+                    />
+                }
                 {
                     this.state.btn_text == 'SIGN UP'
                     &&
                     <View style={styles.inputView} >
                         <TextInput
-                            secureTextEntry
+                            secureTextEntry={this.state.show_password}
                             style={styles.inputText}
                             autoCorrect={false}
                             value={this.state.confirm_password}
@@ -112,25 +228,11 @@ export default class LoginView extends React.Component {
                 }
                 <GradientButton
                     button_label={this.state.btn_text}
-                    color_one={'#000'}
-                    color_two={ONYX_COLOR}
-                    on_press={async () => {
-                        this.props.navigation.navigate('EntryList')
-                        const storage = new MyStorage();
-                        this.setState({ loading: true })
-                        if (this.state.email && this.state.password) {
-                            if (this.state.match_email && this.state.match_password) {
-                                if (this.state.email == this.state.match_email &&
-                                    this.state.password == this.state.match_password) {
-                                    this.props.navigation.navigate('EntryList')
-                                }
-                            } else {
-                                await storage.setEmail(this.state.email);
-                                await storage.setPassword(this.state.password);
-                                this.setState({ loading: false });
-                                this.props.navigation.navigate('EntryList');
-                            }
-                        }
+                    color_one={ENTRY_MAIN_COLOR}
+                    color_two={YELLOW_COLOR}
+                    on_press={() => {
+                        // this.props.navigation.navigate('EntryList')
+                        this.loginUser();
                     }}
                     show_spinner={this.state.loading}
                     text_style={{
@@ -140,14 +242,15 @@ export default class LoginView extends React.Component {
                         fontSize: scale(16)
                     }}
                     custom_style={{
-                        backgroundColor: MAIN_GRAY,
+                        // backgroundColor: MAIN_GRAY,
                         borderWidth: 1,
-                        borderColor: MAIN_GRAY,
+                        marginTop: verticalScale(12),
+                        borderColor: ENTRY_COLOR,
                         height: verticalScale(32.5),
                         borderRadius: scale(24)
                     }}
                 />
-            </LinearGradient>
+            </View>
         )
     }
 }
@@ -163,19 +266,22 @@ const styles = StyleSheet.create({
         fontWeight: "bold",
         fontSize: 50,
         color: ENTRY_MAIN_COLOR,
-        marginBottom: 40
+        marginBottom: 30
     },
     inputView: {
         width: "80%",
         backgroundColor: LIGHT_GRAY,
-        borderRadius: 25,
+        borderRadius: 10,
+        flexDirection: 'row',
+        alignItems: 'center',
         height: 50,
-        marginBottom: 20,
-        justifyContent: "center",
-        padding: 20
+        marginTop: 20,
+        justifyContent: 'space-between',
+        paddingHorizontal: scale(10),
     },
     inputText: {
         height: 50,
+        width: "90%",
         fontFamily: 'BurlingamePro-Medium',
         fontSize: 16,
         color: ONYX_COLOR
@@ -188,7 +294,7 @@ const styles = StyleSheet.create({
         alignItems: "center",
         justifyContent: "center",
         marginTop: 40,
-        marginBottom: 10,
+        // marginBottom: 10,
     },
     loginText: {
         color: '#fff',

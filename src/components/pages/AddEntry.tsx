@@ -4,12 +4,11 @@ import moment from 'moment';
 import Modal from 'react-native-modal';
 import DatePicker from 'react-native-date-picker';
 import LinearGradient from 'react-native-linear-gradient';
-import { ENTRY_COLOR, ENTRY_MAIN_COLOR, GRAPE_COLOR, LIGHT_GRAY, MAIN_GRAY, ONYX_COLOR, PRIMARY_COLOR, YELLOW_COLOR } from "../../../assets/color";
+import { ENTRY_MAIN_COLOR, LIGHT_GRAY, MAIN_GRAY, ONYX_COLOR, YELLOW_COLOR } from "../../../assets/color";
 import CustomBackHeader from '../helpers/CustomHeaderBackButton';
 import ErrorText from '../helpers/ErrorText';
 import { scale, verticalScale } from '../helpers/Scaling';
 import GradientButton from '../helpers/gradientButton';
-import Button from '../helpers/Button';
 import MyStorage from '../helpers/MyStorage';
 import { Icon } from 'react-native-elements';
 interface State {
@@ -29,6 +28,8 @@ interface State {
     show_create_error: boolean;
     create_error: string;
     show_loading: boolean;
+    item_id: string;
+    is_editing: boolean;
 }
 interface Props {
     navigation: any;
@@ -55,21 +56,23 @@ class AddEntry extends Component {
             show_date_label: false,
             show_create_error: false,
             create_error: '',
-            show_loading: false
+            show_loading: false,
+            item_id: '',
+            is_editing: false,
         };
     }
     componentDidMount() {
         if (this?.props?.route?.params?.item) {
-            console.log('props props propsprops', this.props)
             let { item } = this.props?.route?.params
             this.setState({
+                item_id: item.id,
                 name: item.title,
-                description: item.description
+                description: item.description,
+                is_editing: true
             })
         }
     }
     showDatePicker = () => {
-        console.log('coming here')
         this.setState({
             is_date_modal_visible: true
         })
@@ -147,7 +150,7 @@ class AddEntry extends Component {
                 </View>
                 {
                     is_error_visible &&
-                    <ErrorText error_text={input_error} />
+                    <ErrorText text_style={{}} error_text={input_error} />
                 }
             </View>
         );
@@ -171,7 +174,6 @@ class AddEntry extends Component {
         });
     }
     setEntryDate = (date) => {
-        console.log('date***', date, moment(date).format('LL'))
         this.setState({
             entry_date: date
         })
@@ -237,9 +239,9 @@ class AddEntry extends Component {
                                 <DatePicker
                                     date={this.state.date_picker_value}
                                     mode={'date'}
-                                    minimumDate={currentDate}
+                                    // minimumDate={currentDate}
+                                    maximumDate={currentDate}
                                     onDateChange={(date) => {
-                                        console.log('date:', date)
                                         if (date) { this.setState({ date_picker_value: date }) }
                                     }}
                                 />
@@ -258,14 +260,13 @@ class AddEntry extends Component {
                             color_two={YELLOW_COLOR}
                             on_press={() => {
                                 if (this.state.date_picker_value) {
-                                    this.setEntryDate(moment(this.state.date_picker_value).format('LL'))
+                                    this.setEntryDate(moment(this.state.date_picker_value).format('YYYY-MM-DD'))
                                 } else {
-                                    this.setEntryDate(moment().format('LL'))
+                                    this.setEntryDate(moment().format('YYYY-MM-DD'))
                                 }
                                 this.setState({
                                     is_date_modal_visible: false
                                 })
-                                console.log('date picker', this.state.date_picker_value)
                             }}
                             text_style={{
                                 fontFamily: 'BurlingamePro-SemiBold',
@@ -274,42 +275,13 @@ class AddEntry extends Component {
                                 fontSize: scale(16)
                             }}
                             custom_style={{
+                                marginBottom: verticalScale(16),
                                 backgroundColor: 'transparent',
                                 height: verticalScale(37.5),
                                 borderRadius: scale(24)
                             }}
                         />
                     </View>
-                    <TouchableOpacity
-                        style={{
-                            marginTop: verticalScale(8),
-                            marginBottom: verticalScale(16),
-                            height: verticalScale(37.5),
-                            borderRadius: scale(24),
-                            borderWidth: 1,
-                            borderColor: 'transparent',
-                            alignItems: "center",
-                            flexDirection: "row",
-                            justifyContent: "center",
-                            backgroundColor: LIGHT_GRAY
-                        }}
-                        onPress={() => {
-                            this.setState({
-                                is_date_modal_visible: false
-                            })
-                        }}
-                    >
-                        <Text
-                            style={{
-                                paddingHorizontal: scale(80),
-                                color: ONYX_COLOR,
-                                fontSize: scale(12),
-                                fontFamily: "BurlingamePro-SemiBold",
-                            }}
-                        >
-                            CANCEL
-                    </Text>
-                    </TouchableOpacity>
                 </View>
             </Modal>
         );
@@ -323,7 +295,7 @@ class AddEntry extends Component {
             this.setState({
                 show_name_error: true,
                 show_loading: false,
-                name_error: 'Please enter name'
+                name_error: 'Please enter title'
             })
             return
         } else if (this.state.description.trim() == '') {
@@ -333,44 +305,43 @@ class AddEntry extends Component {
                 show_loading: false,
             })
             return
-        } else if (!this.state.entry_date) {
-            this.setState({
-                create_error: 'entered date is not valid',
-                show_create_error: true,
-                show_loading: false,
-            })
-            return
         }
         let oldEntry = []
-        const { name, description, entry_date } = this.state;
+        const { name, description, entry_date, item_id, is_editing } = this.state;
         let check = await new MyStorage().getEntry().then(result => {
-            return JSON.parse(result)
+            if (result)
+                return JSON.parse(result)
+            else {
+                return false
+            }
         });
         if (check) {
             oldEntry = check
         }
-        console.log('check', oldEntry)
+        if (is_editing) {
+            oldEntry = oldEntry.filter(item => item.id != item_id)
+        }
         let newData = {
+            id: is_editing ? item_id : Date.now(),
             title: name,
             description: description,
             date: entry_date
         }
         oldEntry.push(newData);
         await new MyStorage().setEntry(JSON.stringify(oldEntry));
-        console.log('oldEntry', oldEntry)
         setTimeout(() => {
             this.setState({
                 show_loading: false
             })
-            this.props.navigation.goBack();
+            this.props.navigation.navigate('EntryList')
+            // this.props.navigation.goBack();
         }, 200);
     }
     render() {
         const navigate = this.props.navigation;
-        console.log('Propssss', this.props)
         return (
             <View style={{ flex: 1 }}>
-                <CustomBackHeader is_cross={true} show_backButton={true} nav={navigate} title={"Write"} />
+                <CustomBackHeader is_cross={true} show_backButton={true} nav={navigate} title={"Write"} is_delete={false} />
 
                 <View style={{
                     flex: 1,
@@ -402,7 +373,7 @@ class AddEntry extends Component {
                                 fontFamily: "BurlingamePro-CondSemiBold",
                                 color: '#fff',
                             }}>
-                                {typeof this.state.entry_date == 'string' ? this.state.entry_date : 'Pick Date'}
+                                {typeof this.state.entry_date == 'string' ? moment(this.state.entry_date, 'YYYY-MM-DD').format('LL') : 'Pick Date'}
                             </Text>
                             <Icon
                                 color={'#fff'}
@@ -465,7 +436,7 @@ class AddEntry extends Component {
                     }
                     {
                         this.state.show_create_error &&
-                        <ErrorText error_text={this.state.create_error} />
+                        <ErrorText text_style={{}} error_text={this.state.create_error} />
                     }
                 </View>
                 <View style={{
@@ -492,7 +463,7 @@ class AddEntry extends Component {
                         containerStyle={{ marginRight: scale(12) }}
                     />
                     <GradientButton
-                        button_label="Submit"
+                        button_label="Save"
                         color_one={ENTRY_MAIN_COLOR}
                         color_two={YELLOW_COLOR}
                         on_press={() => this.saveEntry()}

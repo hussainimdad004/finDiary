@@ -12,7 +12,9 @@ export default class App extends React.Component {
         super(props);
     }
     componentDidMount() {
-        SplashScreen.hide();
+        setTimeout(() => {
+            SplashScreen.hide()
+        }, 300)
     }
     render() {
         console.disableYellowBox = true

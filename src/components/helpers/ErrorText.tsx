@@ -3,8 +3,8 @@ import { Text } from 'react-native';
 import { YELLOW_COLOR } from '../../../assets/color';
 import { scale, verticalScale } from './Scaling';
 
-const ErrorText = ({ error_text }) => (
-    <Text style={styles.text} >
+const ErrorText = ({ error_text, text_style }) => (
+    <Text style={[styles.text, text_style]} >
         {error_text}
     </Text>
 );

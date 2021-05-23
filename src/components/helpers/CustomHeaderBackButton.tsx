@@ -3,11 +3,14 @@ import {
     View,
     Text,
     Platform,
-    Dimensions
+    Dimensions,
+    TouchableOpacity
 } from 'react-native';
 import DeviceInfo from 'react-native-device-info';
 import CreateBackButton from './BackButton';
+import { Icon } from 'react-native-elements'
 import { scale, verticalScale } from './Scaling';
+import { MAIN_GRAY } from '../../../assets/color';
 const DEVICES = [
     'iPhone X',
     'iPhone XS',
@@ -23,7 +26,7 @@ const DEVICE_HEIGHTS = {
 }
 
 const CustomBackHeader = (props) => {
-    const { nav, nav_to, show_backButton, booking_type, screen_title, is_cross } = props;
+    const { nav, nav_to, show_backButton, booking_type, screen_title, is_cross, delete_pressed, is_delete } = props;
     const { height, width } = Dimensions.get("window");
     const device_name = DeviceInfo.getModel();
     let is_zoomed = false;
@@ -69,8 +72,21 @@ const CustomBackHeader = (props) => {
             {
                 show_backButton
                 &&
-                <View style={{ width: 36, height: 36 }} />
+                <>
+                    {
+                        !is_delete ?
+                            <View></View>
+                            :
+                            <TouchableOpacity onPress={() => {
+                                delete_pressed()
+                            }}>
+                                <Icon color={MAIN_GRAY} name="trash" type="font-awesome" size={28} style={{ marginRight: scale(12) }} />
+                            </TouchableOpacity>
+
+                    }
+                </>
             }
+
         </View>
     )
 };

@@ -16,8 +16,6 @@ export default class MyStorage {
         // return this.rmUserInfo();
     }
     setEntry(entry) {
-        console.log('entry in mys', entry)
-        return
         this.setItem(this.entry_list, entry)
     }
     getEntry() {

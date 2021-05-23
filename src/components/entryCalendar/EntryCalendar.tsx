@@ -1,54 +1,145 @@
 import React, { Component } from 'react';
 import { View, Text, TouchableOpacity, FlatList } from 'react-native';
-import { ENTRY_COLOR, ENTRY_MAIN_COLOR, GRAPE_COLOR, LIGHT_GRAY, MAIN_GRAY, PRIMARY_COLOR } from "../../../assets/color";
+import { ENTRY_MAIN_COLOR, LIGHT_GRAY, MAIN_GRAY, ONYX_COLOR } from "../../../assets/color";
 import { Calendar } from 'react-native-calendars';
-import CustomBackHeader from '../helpers/CustomHeaderBackButton';
 import { scale, verticalScale } from '../helpers/Scaling';
 import moment from 'moment';
-import Button from '../helpers/Button';
 import { ScrollView } from 'react-native-gesture-handler';
 import PureRow from '../helpers/PureRow';
 import FloatingButton from '../helpers/FloatingButton';
+import MyStorage from '../helpers/MyStorage';
+interface MarkedDateItem {
+    customStyles: {
+        container: {
+            borderColor?: string,
+            borderWidth?: number,
+            backgroundColor?: string
+        },
+        text: {
+            fontSize?: number,
+            color?: string
+        }
+    }
+}
+interface EntryListItem {
+    title: string;
+    time: string;
+    description: string;
+}
 interface State {
-    entryList: number[];
-    available_slots: string[]
+    entryList: Array<EntryListItem>;
+    no_slots_available: boolean;
+    markedDates: Map<string, MarkedDateItem>;
+    EntryWithDates: Map<string, Array<EntryListItem>>;
+    empty_message: string;
 }
 interface Props {
     navigation: any;
 }
-const entryList = [
-    {
-        title: 'A. C. Benson',
-        time: moment().format('l'),
-        description: 'A diary need not be a dreary chronicle of ones movements; it should aim rather at giving salient account of some particular episode, a walk, a book, a conversation.'
-    },
-    {
-        title: 'An Easy & Proven Way to Build Good Habits & Break Bad Ones',
-        time: moment().add(20, 'm').format('l'),
-        description: '“Every action you take is a vote for the type of person you wish to become. No single instance will transform your beliefs, but as the votes build up, so does the evidence of your new identity.” James Clear'
-    },
-    {
-        title: 'Small Beginnings',
-        time: moment().add(5, 'd').format('l'),
-        description: '“All big things come from small beginnings. The seed of every habit is a single, tiny decision. But as that decision is repeated, a habit sprouts and grows stronger. Roots entrench themselves and branches grow. The task of breaking a bad habit is like uprooting a powerful oak within us. And the task of building a good habit is like cultivating a delicate flower one day at a time.” James Clear'
-    },
-    {
-        title: 'Be Proud',
-        time: moment().add(2, 'w').format('l'),
-        description: '“The more pride you have in a particular aspect of your identity, the more motivated you will be to maintain the habits associated with it. If you’re proud of how your hair looks, you’ll develop all sorts of habits to care for and maintain it. If you’re proud of the size of your biceps, you’ll make sure you never skip an upper-body workout. If you’re proud of the scarves you knit, you’ll be more likely to spend hours knitting each week. Once your pride gets involved, you’ll fight tooth and nail to maintain your habits.” James Clear'
-    }
-]
+const entryListStatic = []
 class EntryCalendar extends Component {
     state: State;
     props: Props;
+    entryListStatic: [];
+    _unsubscribe: any;
     constructor(props) {
         super(props);
         this.state = {
             entryList: [],
-            available_slots: ['8:30 AM', '9:30 PM', '8:30 AM', '9:30 PM']
+            no_slots_available: false,
+            markedDates: new Map<string, MarkedDateItem>(),
+            EntryWithDates: new Map<string, Array<EntryListItem>>(),
+            empty_message: ''
         };
     }
+    componentDidMount() {
+        this._unsubscribe = this.props.navigation.addListener('focus', () => {
+            this.setDataOnFocus();
+        })
+    }
+    componentWillUnmount() {
+        this._unsubscribe();
+    }
+    setDataOnFocus = async () => {
+        const storage = new MyStorage();
+        let oldEntryWithDates = new Map<string, Array<EntryListItem>>()
+        await storage.getEntry().then(entry => {
+            JSON.parse(entry).map((item) => {
+                const tempEntry = oldEntryWithDates.get(item.date)
+                if (tempEntry) {
+                    oldEntryWithDates.set(item.date, [...tempEntry, item])
+                } else {
+                    oldEntryWithDates.set(item.date, [item])
+                }
+                const found = entryListStatic.some(el => el.id === item.id);
+                if (!found) entryListStatic.push(item);
+            })
+        })
+        this.setState({
+            EntryWithDates: oldEntryWithDates,
+            entryList: oldEntryWithDates.get(moment().format('YYYY-MM-DD'))
+        })
+        this.markedDates(oldEntryWithDates, moment().format('YYYY-MM-DD'))
+    }
+    markedDates = (_value, selected_date) => {
+        let markedDates = new Map<string, MarkedDateItem>()
+        for (const key of _value.keys()) {
+            if (key == selected_date) {
+                markedDates.set(key, {
+                    customStyles: {
+                        container: {
+                            backgroundColor: ENTRY_MAIN_COLOR
+                        },
+                        text: {
+                            color: 'white'
+                        }
+                    }
+                })
+            } else {
+                markedDates.set(key, {
+                    customStyles: {
+                        container: {
+                            // elevation: 4,
+                            borderColor: ENTRY_MAIN_COLOR,
+                            borderWidth: 2
+                        },
+                        text: {
+                            fontSize: 11,
+                            color: 'black'
+                        }
+                    }
+                })
+            }
+        }
+        if (!markedDates.get(selected_date)) {
+            markedDates.set(selected_date, {
+                customStyles: {
+                    container: {
+                        backgroundColor: ENTRY_MAIN_COLOR
+                    },
+                    text: {
+                        color: 'white'
+                    }
+                }
+            })
+        }
+        this.setState({
+            markedDates
+        })
+    }
     onDayPress = (value) => {
+        if (this.state.EntryWithDates.get(value.dateString)) {
+            this.setState({
+                entryList: this.state.EntryWithDates.get(value.dateString)
+            })
+
+        } else {
+            this.setState({
+                entryList: [],
+                empty_message: `Don't have any story for ${moment(value.dateString, 'YYYY-MM-DD').format('LL')}`
+            })
+        }
+        this.markedDates(this.state.EntryWithDates, value.dateString);
     }
     _renderRowItem = ({ item, index }) => (
         <PureRow item={item} index={index} nav={this.props.navigation} title="Entry" />
@@ -78,9 +169,7 @@ class EntryCalendar extends Component {
         )
     }
     render() {
-        const navigate = this.props.navigation
         return (<View style={{ flex: 1 }}>
-            {/* <CustomBackHeader show_backButton={false} nav={navigate} title={"My Diary Calendar"} /> */}
             <View style={{
                 flexDirection: "row",
                 marginTop: verticalScale(25),
@@ -89,79 +178,96 @@ class EntryCalendar extends Component {
             }} >
             </View>
             <ScrollView showsVerticalScrollIndicator={false}>
-                <Calendar
-                    style={{
-                        marginBottom: verticalScale(4),
-                        marginHorizontal: scale(12),
-                        borderRadius: scale(4),
-                        shadowColor: ENTRY_MAIN_COLOR,
-                        shadowOffset: {
-                            width: 0,
-                            height: 2,
-                        },
-                        shadowOpacity: 0.25,
-                        shadowRadius: 3.84,
+                {
+                    this.state.markedDates
+                    &&
+                    <Calendar
+                        style={{
+                            marginBottom: verticalScale(4),
+                            marginHorizontal: scale(12),
+                            borderRadius: scale(4),
+                            shadowColor: ENTRY_MAIN_COLOR,
+                            shadowOffset: {
+                                width: 0,
+                                height: 2,
+                            },
+                            shadowOpacity: 0.25,
+                            shadowRadius: 3.84,
 
-                        elevation: 5,
-                    }}
-                    minDate={moment().format('YYYY-MM-DD')}
-                    theme={{
-                        arrowStyle: {
-                            backgroundColor: MAIN_GRAY,
-                            padding: scale(10),
-                            borderWidth: 1,
-                            borderColor: 'transparent',
-                            borderRadius: 2
-                        },
-                        arrowColor: LIGHT_GRAY,
-                        monthTextColor: '#000',
-                        textMonthFontWeight: 'bold',
-                        textMonthFontSize: 20,
-                    }}
-                    onMonthChange={(month) => {
-                        this.setState({
-                            availableSlots: []
-                        })
-                    }}
-                    onDayPress={this.onDayPress}
-                    hideExtraDays
-                    markingType={'custom'}
-                    markedDates={{
-                        '2021-04-16': {
-                            customStyles: {
-                                container: {
-                                    backgroundColor: PRIMARY_COLOR,
-                                },
-                                text: {
-                                    color: '#fff',
-                                    fontWeight: 'bold'
-                                }
+                            elevation: 5,
+                        }}
+                        theme={{
+                            arrowStyle: {
+                                backgroundColor: 'transparent',
+                                padding: 10
+                            },
+                            arrowColor: MAIN_GRAY,
+                            monthTextColor: ENTRY_MAIN_COLOR,
+                            textMonthFontWeight: 'bold',
+                            textMonthFontSize: 20,
+                        }}
+                        onMonthChange={(month) => {
+                            this.setState({
+                                availableSlots: []
+                            })
+                        }}
+                        onDayPress={this.onDayPress}
+                        hideExtraDays
+                        markingType={'custom'}
+                        markedDates={Object.fromEntries(this.state.markedDates)}
+                    />
+                }
+                {
+                    this.state?.entryList?.length > 0
+                        ?
+                        <FlatList
+                            showsVerticalScrollIndicator={false}
+                            disableVirtualization={false}
+                            data={this.state.entryList}
+                            renderItem={this._renderRowItem}
+                            contentContainerStyle={{ marginTop: verticalScale(8) }}
+                            keyExtractor={item => item.title + ""}
+                        />
+                        :
+                        <View style={{
+                            flex: 1,
+                            marginTop: verticalScale(8),
+                            alignItems: 'center',
+                            marginHorizontal: scale(28)
+                        }}>
+                            {
+                                this.state.empty_message
+                                    ?
+                                    <Text style={{
+                                        textAlign: 'center',
+                                        fontFamily: "BurlingamePro-CondBold",
+                                        fontSize: scale(14),
+                                        color: ONYX_COLOR
+
+                                    }}>
+                                        {this.state.empty_message}
+                                    </Text>
+                                    :
+                                    <Text style={{
+                                        textAlign: 'center',
+                                        fontFamily: "BurlingamePro-CondBold",
+                                        fontSize: scale(14),
+                                        color: ONYX_COLOR
+
+                                    }}>
+                                        {"This is the very beginning of your Stories with finDiary."}
+                                        <Text style={{
+                                            marginTop: verticalScale(4),
+                                            fontFamily: "BurlingamePro-CondSemiBold",
+                                            color: MAIN_GRAY
+                                        }}>{`\nPlease add your stories. You will see them in calendar`}</Text>
+                                    </Text>
+
+
                             }
-                        },
-                        '2021-04-18': {
-                            customStyles: {
-                                container: {
-                                    backgroundColor: 'white',
-                                    borderWidth: 1,
-                                    borderColor: PRIMARY_COLOR,
-                                    elevation: 2
-                                },
-                                text: {
-                                    color: PRIMARY_COLOR,
-                                    fontWeight: 'bold'
-                                }
-                            }
-                        }
-                    }}
-                />
-                <FlatList
-                    showsVerticalScrollIndicator={false}
-                    disableVirtualization={false}
-                    data={entryList}
-                    renderItem={this._renderRowItem}
-                    contentContainerStyle={{ marginTop: verticalScale(8) }}
-                    keyExtractor={item => item.title + ""}
-                />
+
+                        </View>
+                }
             </ScrollView>
             <FloatingButton on_press={() => { this.props.navigation.navigate('AddEntry') }} />
         </View>
